@@ -1,8 +1,9 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
+
+	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/errors"
 )
 
 type HealthResponse struct {
@@ -15,12 +16,13 @@ func HealthHandler(serviceName, version string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+
+			WriteError(w, http.StatusMethodNotAllowed, errors.APIError{
+				Code:    "METHOD_NOT_ALLOWED",
+				Message: "Metodo nao permitido. Use GET.",
+			})
 			return
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
 
 		response := HealthResponse{
 			Status:  "UP",
@@ -28,9 +30,6 @@ func HealthHandler(serviceName, version string) http.HandlerFunc {
 			Version: version,
 		}
 
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			http.Error(w, "failed to encode response", http.StatusInternalServerError)
-			return
-		}
+		WriteJSON(w, http.StatusOK, response)
 	}
 }

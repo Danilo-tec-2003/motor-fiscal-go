@@ -3,17 +3,18 @@ package main
 import (
 	"fmt"
 	"net/http"
+
+	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/config"
+	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/handler"
 )
 
 func main() {
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
+	cfg := config.Load()
+	router := handler.NewRouter(cfg)
+	addr := ":" + cfg.Port
 
-	fmt.Println("Motor Fiscal API iniciado na porta 8080")
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
+	fmt.Printf("Motor Fiscal API iniciado na porta %s\n", cfg.Port)
+	if err := http.ListenAndServe(addr, router); err != nil {
 		fmt.Println("Erro ao iniciar servidor:", err)
 	}
 }

@@ -1,0 +1,1042 @@
+openapi: 3.0.3
+
+info:
+  title: Motor Fiscal API
+  description: >
+    API REST do Motor Fiscal, microservico em Go responsavel por centralizar
+    calculos, validacoes e simulacoes fiscais para operacoes de frete.
+  version: 1.0.0
+  contact:
+    name: Motor Fiscal
+
+servers:
+  - url: http://localhost:8080
+    description: Ambiente local
+
+tags:
+  - name: Health
+    description: Verificacao de saude do servico
+  - name: Tax
+    description: Calculos, simulacoes e comparacoes fiscais
+  - name: CTe
+    description: Validacoes relacionadas a CT-e
+  - name: Rules
+    description: Regras fiscais versionadas
+  - name: Reports
+    description: Relatorios fiscais
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Verifica a saude do servico
+      description: >
+        Retorna informacoes basicas para confirmar que o Motor Fiscal esta
+        online. Este endpoint nao precisa consultar banco, Redis ou API externa
+        no MVP.
+      security: []
+      responses:
+        "200":
+          description: Servico online
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: UP
+                service: motor-fiscal
+                version: 1.0.0
+
+  /api/v1/tax/simulate:
+    post:
+      tags:
+        - Tax
+      summary: Simula o calculo fiscal de um frete
+      description: >
+        Recebe os dados fiscais minimos de uma operacao de frete e retorna
+        ICMS, IBS, CBS, CFOP, total de tributos, total com tributos, versao da
+        regra aplicada e informacao de cache.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaxSimulationRequest"
+            example:
+              freight_id: 1001
+              operation_date: "2026-03-10"
+              origin_uf: PE
+              destination_uf: SP
+              freight_value: "3500.00"
+              customer_type: PJ
+              operation_type: INTERESTADUAL
+      responses:
+        "200":
+          description: Calculo realizado com sucesso
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxSimulationResponse"
+              example:
+                freight_id: 1001
+                base_value: "3500.00"
+                icms:
+                  rate: "12.00"
+                  amount: "420.00"
+                ibs:
+                  rate: "3.60"
+                  amount: "126.00"
+                cbs:
+                  rate: "0.90"
+                  amount: "31.50"
+                total_tax: "577.50"
+                total_with_tax: "4077.50"
+                cfop: "6351"
+                rule_version: "2026.01"
+                from_cache: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/RuleNotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/tax/compare:
+    post:
+      tags:
+        - Tax
+      summary: Compara o modelo atual com o cenario da reforma tributaria
+      description: >
+        Compara a carga tributaria estimada no modelo atual com o cenario de
+        IBS e CBS. A regra exata de comparacao deve seguir as regras fiscais
+        cadastradas e versionadas.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaxSimulationRequest"
+            example:
+              freight_id: 1001
+              operation_date: "2026-03-10"
+              origin_uf: PE
+              destination_uf: SP
+              freight_value: "3500.00"
+              customer_type: PJ
+              operation_type: INTERESTADUAL
+      responses:
+        "200":
+          description: Comparacao realizada com sucesso
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxComparisonResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/RuleNotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/tax/batch:
+    post:
+      tags:
+        - Tax
+      summary: Calcula varios fretes em lote
+      description: >
+        Recebe uma lista de fretes e retorna o resultado fiscal de cada item.
+        Deve ser usado para simulacoes mensais, processamento em massa e
+        comparacoes de impacto fiscal.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaxBatchRequest"
+            example:
+              items:
+                - freight_id: 1001
+                  operation_date: "2026-03-10"
+                  origin_uf: PE
+                  destination_uf: SP
+                  freight_value: "3500.00"
+                  customer_type: PJ
+                  operation_type: INTERESTADUAL
+                - freight_id: 1002
+                  operation_date: "2026-03-10"
+                  origin_uf: PE
+                  destination_uf: PE
+                  freight_value: "900.00"
+                  customer_type: PF
+                  operation_type: INTERNA
+      responses:
+        "200":
+          description: Lote processado com sucesso
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxBatchResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/cte/validate:
+    post:
+      tags:
+        - CTe
+      summary: Valida dados minimos para CT-e
+      description: >
+        Verifica se o frete possui dados fiscais minimos para seguir para uma
+        simulacao ou emissao de CT-e. Este endpoint nao emite CT-e.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CTeValidationRequest"
+            example:
+              freight_id: 1001
+              operation_date: "2026-03-10"
+              origin_uf: PE
+              destination_uf: SP
+              freight_value: "3500.00"
+              customer_type: PJ
+              operation_type: INTERESTADUAL
+              sender:
+                name: Remetente Exemplo
+                document: "12345678000199"
+                uf: PE
+              recipient:
+                name: Destinatario Exemplo
+                document: "98765432000188"
+                uf: SP
+      responses:
+        "200":
+          description: Validacao realizada
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CTeValidationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/cte/preview:
+    post:
+      tags:
+        - CTe
+      summary: Gera preview/mock de CT-e
+      description: >
+        Endpoint previsto para versao futura. Deve gerar uma pre-visualizacao
+        ou mock de CT-e sem emissao real e sem comunicacao obrigatoria com SEFAZ.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CTeValidationRequest"
+      responses:
+        "200":
+          description: Preview gerado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CTePreviewResponse"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+  /api/v1/rules:
+    get:
+      tags:
+        - Rules
+      summary: Lista regras fiscais cadastradas
+      description: >
+        Lista regras fiscais versionadas. Endpoint previsto para administracao,
+        auditoria ou conferencia tecnica.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: origin_uf
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/UF"
+        - name: destination_uf
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/UF"
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Regras listadas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FiscalRuleListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags:
+        - Rules
+      summary: Cadastra uma regra fiscal
+      description: >
+        Endpoint previsto para versao futura ou uso administrativo. No MVP, as
+        regras podem entrar por seed/migration para evitar tela administrativa.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FiscalRuleRequest"
+      responses:
+        "201":
+          description: Regra criada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FiscalRule"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/reports/tax-summary:
+    get:
+      tags:
+        - Reports
+      summary: Retorna resumo fiscal por periodo
+      description: >
+        Endpoint futuro para relatorios fiscais em JSON. Deve retornar totais
+        de fretes, ICMS, IBS, CBS e total de tributos por periodo.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/StartDate"
+        - $ref: "#/components/parameters/EndDate"
+      responses:
+        "200":
+          description: Resumo fiscal gerado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxSummaryReportResponse"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+  /api/v1/reports/reform-impact:
+    get:
+      tags:
+        - Reports
+      summary: Retorna impacto estimado da reforma tributaria
+      description: >
+        Endpoint futuro para comparar o modelo atual com o cenario de reforma
+        em um periodo.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/StartDate"
+        - $ref: "#/components/parameters/EndDate"
+      responses:
+        "200":
+          description: Relatorio gerado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReformImpactReportResponse"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+  /api/v1/reports/inconsistencies:
+    get:
+      tags:
+        - Reports
+      summary: Lista inconsistencias fiscais registradas
+      description: >
+        Endpoint futuro para consultar fretes que falharam em validacoes
+        fiscais ou de CT-e.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/StartDate"
+        - $ref: "#/components/parameters/EndDate"
+      responses:
+        "200":
+          description: Inconsistencias listadas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InconsistencyReportResponse"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: >
+        Token simples para autenticacao interna entre o sistema de frete e o
+        Motor Fiscal. O valor real deve vir de variavel de ambiente.
+
+  parameters:
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: >
+        Identificador de rastreio da requisicao. Se nao for enviado, o
+        microservico deve gerar um novo valor.
+      schema:
+        type: string
+        example: req-20260504-0001
+
+    StartDate:
+      name: start
+      in: query
+      required: true
+      description: Data inicial do periodo.
+      schema:
+        type: string
+        format: date
+        example: "2026-01-01"
+
+    EndDate:
+      name: end
+      in: query
+      required: true
+      description: Data final do periodo.
+      schema:
+        type: string
+        format: date
+        example: "2026-01-31"
+
+  headers:
+    CorrelationId:
+      description: Identificador de rastreio da requisicao.
+      schema:
+        type: string
+        example: req-20260504-0001
+
+  responses:
+    BadRequest:
+      description: JSON invalido ou requisicao malformada
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: BAD_REQUEST
+            message: JSON invalido ou requisicao malformada.
+            correlation_id: req-20260504-0001
+            details: []
+
+    Unauthorized:
+      description: Token ausente ou invalido
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: UNAUTHORIZED
+            message: Token ausente ou invalido.
+            correlation_id: req-20260504-0001
+            details: []
+
+    RuleNotFound:
+      description: Regra fiscal nao encontrada para os parametros informados
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: FISCAL_RULE_NOT_FOUND
+            message: Nenhuma regra fiscal vigente foi encontrada.
+            correlation_id: req-20260504-0001
+            details:
+              - field: operation_date
+                message: Verifique se existe regra ativa para a data informada.
+
+    ValidationError:
+      description: Dados validos em JSON, mas inconsistentes para a regra fiscal
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: VALIDATION_ERROR
+            message: Payload invalido.
+            correlation_id: req-20260504-0001
+            details:
+              - field: freight_value
+                message: Deve ser maior que zero.
+
+    InternalError:
+      description: Erro interno inesperado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: INTERNAL_ERROR
+            message: Erro interno inesperado.
+            correlation_id: req-20260504-0001
+            details: []
+
+    NotImplemented:
+      description: Endpoint documentado, mas ainda nao implementado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: NOT_IMPLEMENTED
+            message: Endpoint previsto para versao futura.
+            correlation_id: req-20260504-0001
+            details: []
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - version
+      properties:
+        status:
+          type: string
+          example: UP
+        service:
+          type: string
+          example: motor-fiscal
+        version:
+          type: string
+          example: 1.0.0
+
+    TaxSimulationRequest:
+      type: object
+      required:
+        - freight_id
+        - operation_date
+        - origin_uf
+        - destination_uf
+        - freight_value
+        - customer_type
+        - operation_type
+      properties:
+        freight_id:
+          type: integer
+          format: int64
+          description: Identificador do frete no sistema principal.
+          example: 1001
+        operation_date:
+          type: string
+          format: date
+          description: Data usada para selecionar a regra fiscal vigente.
+          example: "2026-03-10"
+        origin_uf:
+          $ref: "#/components/schemas/UF"
+        destination_uf:
+          $ref: "#/components/schemas/UF"
+        freight_value:
+          $ref: "#/components/schemas/Money"
+        customer_type:
+          $ref: "#/components/schemas/CustomerType"
+        operation_type:
+          $ref: "#/components/schemas/OperationType"
+
+    TaxSimulationResponse:
+      type: object
+      required:
+        - freight_id
+        - base_value
+        - icms
+        - ibs
+        - cbs
+        - total_tax
+        - total_with_tax
+        - cfop
+        - rule_version
+        - from_cache
+      properties:
+        freight_id:
+          type: integer
+          format: int64
+          example: 1001
+        base_value:
+          $ref: "#/components/schemas/Money"
+        icms:
+          $ref: "#/components/schemas/TaxAmount"
+        ibs:
+          $ref: "#/components/schemas/TaxAmount"
+        cbs:
+          $ref: "#/components/schemas/TaxAmount"
+        total_tax:
+          $ref: "#/components/schemas/Money"
+        total_with_tax:
+          $ref: "#/components/schemas/Money"
+        cfop:
+          type: string
+          description: CFOP definido pela regra fiscal.
+          example: "6351"
+        rule_version:
+          type: string
+          description: Versao da regra fiscal aplicada.
+          example: "2026.01"
+        from_cache:
+          type: boolean
+          description: Indica se o resultado veio do Redis.
+          example: false
+
+    TaxComparisonResponse:
+      type: object
+      required:
+        - freight_id
+        - current_scenario
+        - reform_scenario
+        - difference
+        - analysis
+      properties:
+        freight_id:
+          type: integer
+          format: int64
+          example: 1001
+        current_scenario:
+          $ref: "#/components/schemas/TaxScenario"
+        reform_scenario:
+          $ref: "#/components/schemas/TaxScenario"
+        difference:
+          $ref: "#/components/schemas/Money"
+        analysis:
+          type: string
+          example: Cenario da reforma apresentou aumento estimado de tributos.
+
+    TaxBatchRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/TaxSimulationRequest"
+
+    TaxBatchResponse:
+      type: object
+      required:
+        - total_items
+        - success_count
+        - error_count
+        - results
+      properties:
+        total_items:
+          type: integer
+          example: 2
+        success_count:
+          type: integer
+          example: 1
+        error_count:
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaxBatchItemResult"
+
+    TaxBatchItemResult:
+      type: object
+      required:
+        - freight_id
+        - success
+      properties:
+        freight_id:
+          type: integer
+          format: int64
+          example: 1001
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/TaxSimulationResponse"
+        error:
+          $ref: "#/components/schemas/ErrorResponse"
+
+    TaxScenario:
+      type: object
+      required:
+        - base_value
+        - total_tax
+        - total_with_tax
+      properties:
+        base_value:
+          $ref: "#/components/schemas/Money"
+        total_tax:
+          $ref: "#/components/schemas/Money"
+        total_with_tax:
+          $ref: "#/components/schemas/Money"
+
+    TaxAmount:
+      type: object
+      required:
+        - rate
+        - amount
+      properties:
+        rate:
+          type: string
+          pattern: "^\\d{1,3}\\.\\d{2}$"
+          description: Aliquota percentual em formato decimal.
+          example: "12.00"
+        amount:
+          $ref: "#/components/schemas/Money"
+
+    CTeValidationRequest:
+      allOf:
+        - $ref: "#/components/schemas/TaxSimulationRequest"
+        - type: object
+          required:
+            - sender
+            - recipient
+          properties:
+            sender:
+              $ref: "#/components/schemas/Party"
+            recipient:
+              $ref: "#/components/schemas/Party"
+
+    CTeValidationResponse:
+      type: object
+      required:
+        - freight_id
+        - valid
+        - errors
+        - warnings
+      properties:
+        freight_id:
+          type: integer
+          format: int64
+          example: 1001
+        valid:
+          type: boolean
+          example: true
+        cfop:
+          type: string
+          example: "6351"
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationDetail"
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationDetail"
+
+    CTePreviewResponse:
+      type: object
+      required:
+        - freight_id
+        - preview_id
+        - status
+      properties:
+        freight_id:
+          type: integer
+          format: int64
+          example: 1001
+        preview_id:
+          type: string
+          example: cte-preview-1001
+        status:
+          type: string
+          example: GENERATED
+        message:
+          type: string
+          example: Preview/mock de CT-e gerado sem emissao real.
+
+    Party:
+      type: object
+      required:
+        - name
+        - document
+        - uf
+      properties:
+        name:
+          type: string
+          minLength: 2
+          example: Remetente Exemplo
+        document:
+          type: string
+          description: CPF ou CNPJ. Deve ser mascarado nos logs.
+          example: "12345678000199"
+        uf:
+          $ref: "#/components/schemas/UF"
+
+    FiscalRuleRequest:
+      type: object
+      required:
+        - rule_version
+        - origin_uf
+        - destination_uf
+        - operation_type
+        - customer_type
+        - icms_rate
+        - ibs_rate
+        - cbs_rate
+        - cfop
+        - valid_from
+        - active
+      properties:
+        rule_version:
+          type: string
+          example: "2026.01"
+        origin_uf:
+          $ref: "#/components/schemas/UF"
+        destination_uf:
+          $ref: "#/components/schemas/UF"
+        operation_type:
+          $ref: "#/components/schemas/OperationType"
+        customer_type:
+          $ref: "#/components/schemas/CustomerType"
+        icms_rate:
+          type: string
+          example: "12.00"
+        ibs_rate:
+          type: string
+          example: "3.60"
+        cbs_rate:
+          type: string
+          example: "0.90"
+        cfop:
+          type: string
+          example: "6351"
+        valid_from:
+          type: string
+          format: date
+          example: "2026-01-01"
+        valid_to:
+          type: string
+          format: date
+          nullable: true
+          example: "2026-12-31"
+        active:
+          type: boolean
+          example: true
+
+    FiscalRule:
+      allOf:
+        - type: object
+          required:
+            - id
+            - created_at
+            - updated_at
+          properties:
+            id:
+              type: integer
+              format: int64
+              example: 1
+            created_at:
+              type: string
+              format: date-time
+              example: "2026-05-04T10:00:00Z"
+            updated_at:
+              type: string
+              format: date-time
+              example: "2026-05-04T10:00:00Z"
+        - $ref: "#/components/schemas/FiscalRuleRequest"
+
+    FiscalRuleListResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FiscalRule"
+
+    TaxSummaryReportResponse:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date
+          example: "2026-01-01"
+        end:
+          type: string
+          format: date
+          example: "2026-01-31"
+        total_freights:
+          type: integer
+          example: 120
+        total_icms:
+          $ref: "#/components/schemas/Money"
+        total_ibs:
+          $ref: "#/components/schemas/Money"
+        total_cbs:
+          $ref: "#/components/schemas/Money"
+        total_tax:
+          $ref: "#/components/schemas/Money"
+
+    ReformImpactReportResponse:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date
+          example: "2026-01-01"
+        end:
+          type: string
+          format: date
+          example: "2026-01-31"
+        current_total_tax:
+          $ref: "#/components/schemas/Money"
+        reform_total_tax:
+          $ref: "#/components/schemas/Money"
+        difference:
+          $ref: "#/components/schemas/Money"
+        analysis:
+          type: string
+          example: Impacto estimado calculado com base nas simulacoes persistidas.
+
+    InconsistencyReportResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              freight_id:
+                type: integer
+                format: int64
+                example: 1001
+              code:
+                type: string
+                example: VALIDATION_ERROR
+              message:
+                type: string
+                example: UF de destino obrigatoria.
+              created_at:
+                type: string
+                format: date-time
+                example: "2026-05-04T10:00:00Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+        - correlation_id
+        - details
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Payload invalido.
+        correlation_id:
+          type: string
+          example: req-20260504-0001
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationDetail"
+
+    ValidationDetail:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          example: freight_value
+        message:
+          type: string
+          example: Deve ser maior que zero.
+
+    UF:
+      type: string
+      minLength: 2
+      maxLength: 2
+      description: Unidade federativa brasileira em letras maiusculas.
+      example: PE
+
+    Money:
+      type: string
+      pattern: "^\\d+\\.\\d{2}$"
+      description: Valor monetario trafegado como string para evitar perda de precisao.
+      example: "3500.00"
+
+    CustomerType:
+      type: string
+      description: Tipo de destinatario ou cliente.
+      enum:
+        - PF
+        - PJ
+      example: PJ
+
+    OperationType:
+      type: string
+      description: Tipo fiscal da operacao de transporte.
+      enum:
+        - INTERNA
+        - INTERESTADUAL
+      example: INTERESTADUAL

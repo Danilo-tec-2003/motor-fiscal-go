@@ -7,6 +7,7 @@ import (
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/dto"
 	apierrors "github.com/Danilo-tec-2003/motor-fiscal-go/internal/errors"
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/middleware"
+	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/service"
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/validator"
 )
 
@@ -50,11 +51,9 @@ func TaxSimulationHandler() http.HandlerFunc {
 			return
 		}
 
-		WriteError(w, http.StatusNotImplemented, apierrors.APIError{
-			Code:          "NOT_IMPLEMENTED",
-			Message:       "Calculo fiscal ainda nao implementado.",
-			CorrelationID: correlationID,
-			Details:       []apierrors.ValidationDetail{},
-		})
+		taxService := service.NewTaxService()
+		response := taxService.Simulate(request)
+
+		WriteJSON(w, http.StatusOK, response)
 	}
 }

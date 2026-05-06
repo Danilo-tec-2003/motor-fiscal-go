@@ -9,7 +9,9 @@ import (
 
 func NewRouter(cfg config.Config) http.Handler {
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("/health", HealthHandler(cfg.Service, cfg.Version))
+	mux.HandleFunc("/api/v1/tax/simulate", TaxSimulationHandler())
 
 	return middleware.CorrelationID(mux)
 }

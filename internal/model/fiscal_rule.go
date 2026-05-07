@@ -12,4 +12,6 @@ type FiscalRule struct {
 	IBSRate       decimal.Decimal
 	CBSRate       decimal.Decimal
 	CFOP          string
+	ValidFrom     string
+	ValidTo       string
 }

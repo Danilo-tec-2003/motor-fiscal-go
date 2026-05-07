@@ -1,6 +1,8 @@
 package validator
 
 import (
+	"time"
+
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/dto"
 	apierrors "github.com/Danilo-tec-2003/motor-fiscal-go/internal/errors"
 	"github.com/shopspring/decimal"
@@ -20,6 +22,11 @@ func ValidateTaxSimulationRequest(request dto.TaxSimulationRequest) []apierrors.
 		details = append(details, apierrors.ValidationDetail{
 			Field:   "operation_date",
 			Message: "Campo obrigatorio.",
+		})
+	} else if _, err := time.Parse("2006-01-02", request.OperationDate); err != nil {
+		details = append(details, apierrors.ValidationDetail{
+			Field:   "operation_date",
+			Message: "Data deve estar no formato YYYY-MM-DD.",
 		})
 	}
 

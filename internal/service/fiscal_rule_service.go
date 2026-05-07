@@ -22,6 +22,8 @@ var defaultFiscalRule = []model.FiscalRule{
 		IBSRate:       decimal.NewFromFloat(3.60),
 		CBSRate:       decimal.NewFromFloat(0.90),
 		CFOP:          "6351",
+		ValidFrom:     "2026-01-01",
+		ValidTo:       "2026-12-31",
 	},
 
 	{
@@ -34,6 +36,8 @@ var defaultFiscalRule = []model.FiscalRule{
 		IBSRate:       decimal.NewFromFloat(3.60),
 		CBSRate:       decimal.NewFromFloat(0.90),
 		CFOP:          "5351",
+		ValidFrom:     "2026-01-01",
+		ValidTo:       "2026-12-31",
 	},
 }
 
@@ -57,5 +61,7 @@ func ruleMatchesRequest(rule model.FiscalRule, request dto.TaxSimulationRequest)
 	return rule.OriginUF == request.OriginUF &&
 		rule.DestinationUF == request.DestinationUF &&
 		rule.OperationType == request.OperationType &&
-		rule.CustomerType == request.CustomerType
+		rule.CustomerType == request.CustomerType &&
+		request.OperationDate >= rule.ValidFrom &&
+		request.OperationDate <= rule.ValidTo
 }

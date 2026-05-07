@@ -52,7 +52,21 @@ func TaxSimulationHandler() http.HandlerFunc {
 		}
 
 		taxService := service.NewTaxService()
-		response := taxService.Simulate(request)
+		response, err := taxService.Simulate(request)
+		if err != nil {
+			WriteError(w, http.StatusUnprocessableEntity, apierrors.APIError{
+				Code:          "VALIDATION_ERROR",
+				Message:       "Payload invalido.",
+				CorrelationID: correlationID,
+				Details: []apierrors.ValidationDetail{
+					{
+						Field:   "freight_value",
+						Message: "Valor monetario invalido.",
+					},
+				},
+			})
+			return
+		}
 
 		WriteJSON(w, http.StatusOK, response)
 	}

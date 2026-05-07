@@ -3,6 +3,7 @@ package validator
 import (
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/dto"
 	apierrors "github.com/Danilo-tec-2003/motor-fiscal-go/internal/errors"
+	"github.com/shopspring/decimal"
 )
 
 func ValidateTaxSimulationRequest(request dto.TaxSimulationRequest) []apierrors.ValidationDetail {
@@ -41,6 +42,19 @@ func ValidateTaxSimulationRequest(request dto.TaxSimulationRequest) []apierrors.
 			Field:   "freight_value",
 			Message: "Campo obrigatorio.",
 		})
+	} else {
+		freightValue, err := decimal.NewFromString(request.FreightValue)
+		if err != nil {
+			details = append(details, apierrors.ValidationDetail{
+				Field:   "freight_value",
+				Message: "Valor monetario invalido.",
+			})
+		} else if freightValue.LessThanOrEqual(decimal.Zero) {
+			details = append(details, apierrors.ValidationDetail{
+				Field:   "freight_value",
+				Message: "Deve ser maior que zero.",
+			})
+		}
 	}
 
 	if request.CustomerType == "" {

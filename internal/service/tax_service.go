@@ -5,21 +5,27 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-type TaxService struct{}
+type TaxService struct {
+	ruleService FiscalRuleService
+}
 
 func NewTaxService() TaxService {
-	return TaxService{}
+	return TaxService{
+		ruleService: NewFiscalRuleService(),
+	}
 }
 
 func (s TaxService) Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error) {
 	freightValue, err := decimal.NewFromString(request.FreightValue)
+	rule, err := s.ruleService.FindRule(request)
+
 	if err != nil {
 		return dto.TaxSimulationResponse{}, err
 	}
 
-	icmsRate := decimal.NewFromFloat(12.00)
-	ibsRate := decimal.NewFromFloat(3.60)
-	cbsRate := decimal.NewFromFloat(0.90)
+	icmsRate := rule.ICMSRate
+	ibsRate := rule.IBSRate
+	cbsRate := rule.CBSRate
 
 	icmsAmount := calculateTaxAmount(freightValue, icmsRate)
 	ibsAmount := calculateTaxAmount(freightValue, ibsRate)
@@ -45,8 +51,8 @@ func (s TaxService) Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulatio
 		},
 		TotalTax:     formatMoney(totalTax),
 		TotalWithTax: formatMoney(totalWithTax),
-		CFOP:         "6351",
-		RuleVersion:  "2026.01",
+		CFOP:         rule.CFOP,
+		RuleVersion:  rule.RuleVersion,
 		FromCahe:     false,
 	}, nil
 }

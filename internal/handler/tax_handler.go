@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/dto"
@@ -54,6 +55,21 @@ func TaxSimulationHandler() http.HandlerFunc {
 		taxService := service.NewTaxService()
 		response, err := taxService.Simulate(request)
 		if err != nil {
+			if errors.Is(err, service.ErrFiscalRuleNotFound) {
+				WriteError(w, http.StatusNotFound, apierrors.APIError{
+					Code:          "FISCAL_RULE_NOT_FOUND",
+					Message:       "Nenhuma regra fiscal vigente.",
+					CorrelationID: correlationID,
+					Details: []apierrors.ValidationDetail{
+						{
+							Field:   "operation_date",
+							Message: "Verifique se existe regra ativa para os parametros informados.",
+						},
+					},
+				})
+				return
+			}
+
 			WriteError(w, http.StatusUnprocessableEntity, apierrors.APIError{
 				Code:          "VALIDATION_ERROR",
 				Message:       "Payload invalido.",

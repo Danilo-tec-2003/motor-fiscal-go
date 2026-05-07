@@ -15,5 +15,5 @@ type TaxSimulationResponse struct {
 	TotalWithTax string    `json:"total_with_tax"`
 	CFOP         string    `json:"cfop"`
 	RuleVersion  string    `json:"rule_version"`
-	FromCahe     bool      `json:"from_cache"`
+	FromCache    bool      `json:"from_cache"`
 }

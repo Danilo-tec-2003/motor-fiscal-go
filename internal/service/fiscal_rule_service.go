@@ -10,6 +10,33 @@ import (
 
 var ErrFiscalRuleNotFound = errors.New("fiscal rule not found")
 
+var defaultFiscalRule = []model.FiscalRule{
+
+	{
+		RuleVersion:   "2026.01",
+		OriginUF:      "PE",
+		DestinationUF: "SP",
+		OperationType: "INTERESTADUAL",
+		CustomerType:  "PJ",
+		ICMSRate:      decimal.NewFromFloat(12.00),
+		IBSRate:       decimal.NewFromFloat(3.60),
+		CBSRate:       decimal.NewFromFloat(0.90),
+		CFOP:          "6351",
+	},
+
+	{
+		RuleVersion:   "2026.01",
+		OriginUF:      "PE",
+		DestinationUF: "PE",
+		OperationType: "INTERNA",
+		CustomerType:  "PF",
+		ICMSRate:      decimal.NewFromFloat(18.00),
+		IBSRate:       decimal.NewFromFloat(3.60),
+		CBSRate:       decimal.NewFromFloat(0.90),
+		CFOP:          "5351",
+	},
+}
+
 type FiscalRuleService struct{}
 
 func NewFiscalRuleService() FiscalRuleService {
@@ -17,15 +44,18 @@ func NewFiscalRuleService() FiscalRuleService {
 }
 
 func (s FiscalRuleService) FindRule(request dto.TaxSimulationRequest) (model.FiscalRule, error) {
-	return model.FiscalRule{
-		RuleVersion:   "2026.01",
-		OriginUF:      request.OriginUF,
-		DestinationUF: request.DestinationUF,
-		OperationType: request.OperationType,
-		CustomerType:  request.CustomerType,
-		ICMSRate:      decimal.NewFromFloat(12.00),
-		IBSRate:       decimal.NewFromFloat(3.60),
-		CBSRate:       decimal.NewFromFloat(0.90),
-		CFOP:          "6351",
-	}, nil
+	for _, rule := range defaultFiscalRule {
+		if ruleMatchesRequest(rule, request) {
+			return rule, nil
+		}
+	}
+
+	return model.FiscalRule{}, ErrFiscalRuleNotFound
+}
+
+func ruleMatchesRequest(rule model.FiscalRule, request dto.TaxSimulationRequest) bool {
+	return rule.OriginUF == request.OriginUF &&
+		rule.DestinationUF == request.DestinationUF &&
+		rule.OperationType == request.OperationType &&
+		rule.CustomerType == request.CustomerType
 }

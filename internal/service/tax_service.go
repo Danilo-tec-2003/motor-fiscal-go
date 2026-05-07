@@ -17,6 +17,10 @@ func NewTaxService() TaxService {
 
 func (s TaxService) Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error) {
 	freightValue, err := decimal.NewFromString(request.FreightValue)
+	if err != nil {
+		return dto.TaxSimulationResponse{}, err
+	}
+
 	rule, err := s.ruleService.FindRule(request)
 
 	if err != nil {
@@ -53,7 +57,7 @@ func (s TaxService) Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulatio
 		TotalWithTax: formatMoney(totalWithTax),
 		CFOP:         rule.CFOP,
 		RuleVersion:  rule.RuleVersion,
-		FromCahe:     false,
+		FromCache:    false,
 	}, nil
 }
 

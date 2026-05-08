@@ -35,6 +35,11 @@ func ValidateTaxSimulationRequest(request dto.TaxSimulationRequest) []apierrors.
 			Field:   "origin_uf",
 			Message: "Campo obrigatorio.",
 		})
+	} else if !isValidUF(request.OriginUF) {
+		details = append(details, apierrors.ValidationDetail{
+			Field:   "origin_uf",
+			Message: "UF invalida.",
+		})
 	}
 
 	if request.DestinationUF == "" {
@@ -42,6 +47,30 @@ func ValidateTaxSimulationRequest(request dto.TaxSimulationRequest) []apierrors.
 			Field:   "destination_uf",
 			Message: "Campo obrigatorio.",
 		})
+	} else if !isValidUF(request.DestinationUF) {
+		details = append(details, apierrors.ValidationDetail{
+			Field:   "destination_uf",
+			Message: "UF invalida.",
+		})
+	}
+
+	if isValidUF(request.OriginUF) &&
+		isValidUF(request.DestinationUF) &&
+		isValidOperationType(request.OperationType) {
+
+		if request.OriginUF == request.DestinationUF && request.OperationType != "INTERNA" {
+			details = append(details, apierrors.ValidationDetail{
+				Field:   "operation_type",
+				Message: "Operacao com mesma UF deve ser INTERNA.",
+			})
+		}
+
+		if request.OriginUF != request.DestinationUF && request.OperationType != "INTERESTADUAL" {
+			details = append(details, apierrors.ValidationDetail{
+				Field:   "operation_type",
+				Message: "Operacao entre UFs diferentes deve ser INTERESTADUAL.",
+			})
+		}
 	}
 
 	if request.FreightValue == "" {
@@ -69,6 +98,11 @@ func ValidateTaxSimulationRequest(request dto.TaxSimulationRequest) []apierrors.
 			Field:   "customer_type",
 			Message: "Campo obrigatorio.",
 		})
+	} else if !isValidCustomerType(request.CustomerType) {
+		details = append(details, apierrors.ValidationDetail{
+			Field:   "customer_type",
+			Message: "Tipo de cliente invalido. Deve ser 'PF' ou 'PJ'.",
+		})
 	}
 
 	if request.OperationType == "" {
@@ -76,7 +110,53 @@ func ValidateTaxSimulationRequest(request dto.TaxSimulationRequest) []apierrors.
 			Field:   "operation_type",
 			Message: "Campo obrigatorio.",
 		})
+	} else if !isValidOperationType(request.OperationType) {
+		details = append(details, apierrors.ValidationDetail{
+			Field:   "operation_type",
+			Message: "Tipo de operacao invalido. Deve ser 'INTERNA' ou 'INTERESTADUAL'.",
+		})
 	}
 
 	return details
+}
+
+func isValidUF(uf string) bool {
+	validUFs := map[string]bool{
+		"AC": true,
+		"AL": true,
+		"AP": true,
+		"AM": true,
+		"BA": true,
+		"CE": true,
+		"DF": true,
+		"ES": true,
+		"GO": true,
+		"MA": true,
+		"MT": true,
+		"MS": true,
+		"MG": true,
+		"PA": true,
+		"PB": true,
+		"PR": true,
+		"PE": true,
+		"PI": true,
+		"RJ": true,
+		"RN": true,
+		"RS": true,
+		"RO": true,
+		"RR": true,
+		"SC": true,
+		"SP": true,
+		"SE": true,
+		"TO": true,
+	}
+	return validUFs[uf]
+}
+
+func isValidCustomerType(customerType string) bool {
+	return customerType == "PF" || customerType == "PJ"
+}
+
+func isValidOperationType(operationType string) bool {
+	return operationType == "INTERNA" || operationType == "INTERESTADUAL"
 }

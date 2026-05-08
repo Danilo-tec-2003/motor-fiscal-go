@@ -10,8 +10,7 @@ import (
 
 var ErrFiscalRuleNotFound = errors.New("fiscal rule not found")
 
-var defaultFiscalRule = []model.FiscalRule{
-
+var defaultFiscalRules = []model.FiscalRule{
 	{
 		RuleVersion:   "2026.01",
 		OriginUF:      "PE",
@@ -48,7 +47,7 @@ func NewFiscalRuleService() FiscalRuleService {
 }
 
 func (s FiscalRuleService) FindRule(request dto.TaxSimulationRequest) (model.FiscalRule, error) {
-	for _, rule := range defaultFiscalRule {
+	for _, rule := range defaultFiscalRules {
 		if ruleMatchesRequest(rule, request) {
 			return rule, nil
 		}

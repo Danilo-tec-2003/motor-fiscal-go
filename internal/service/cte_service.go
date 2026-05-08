@@ -1,0 +1,68 @@
+package service
+
+import (
+	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/dto"
+	apierrors "github.com/Danilo-tec-2003/motor-fiscal-go/internal/errors"
+)
+
+type CTeService struct {
+	ruleService FiscalRuleService
+}
+
+func NewCTeService() CTeService {
+	return CTeService{
+		ruleService: NewFiscalRuleService(),
+	}
+}
+
+func (s CTeService) Validate(request dto.CTeValidationRequest) dto.CTeValidationResponse {
+	var validationErrors []apierrors.ValidationDetail
+	var warnings []apierrors.ValidationDetail
+
+	if request.Sender.Name == "" {
+		validationErrors = append(validationErrors, apierrors.ValidationDetail{
+			Field:   "sender.name",
+			Message: "Nome do remetente e obrigatorio.",
+		})
+	}
+
+	if request.Sender.Document == "" {
+		validationErrors = append(validationErrors, apierrors.ValidationDetail{
+			Field:   "sender.document",
+			Message: "Documento do remetente e obrigatorio.",
+		})
+	}
+
+	if request.Recipient.Name == "" {
+		validationErrors = append(validationErrors, apierrors.ValidationDetail{
+			Field:   "recipient.name",
+			Message: "Nome do destinatario e obrigatorio.",
+		})
+	}
+
+	if request.Recipient.Document == "" {
+		validationErrors = append(validationErrors, apierrors.ValidationDetail{
+			Field:   "recipient.document",
+			Message: "Documento do destinatario e obrigatorio.",
+		})
+	}
+
+	cfop := ""
+	rule, err := s.ruleService.FindRule(request.TaxSimulationRequest)
+	if err == nil {
+		cfop = rule.CFOP
+	} else {
+		warnings = append(warnings, apierrors.ValidationDetail{
+			Field:   "tax_simulation",
+			Message: "Nao foi encontrada regra fiscal para determinar CFOP.",
+		})
+	}
+
+	return dto.CTeValidationResponse{
+		FreightID: request.FreightID,
+		Valid:     len(validationErrors) == 0,
+		CFOP:      cfop,
+		Errors:    validationErrors,
+		Warnings:  warnings,
+	}
+}

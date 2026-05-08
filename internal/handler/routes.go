@@ -12,6 +12,7 @@ func NewRouter(cfg config.Config) http.Handler {
 
 	mux.HandleFunc("/health", HealthHandler(cfg.Service, cfg.Version))
 	mux.HandleFunc("/api/v1/tax/simulate", TaxSimulationHandler())
+	mux.HandleFunc("/api/v1/cte/validate", CTeValidationHandler())
 
 	return middleware.CorrelationID(mux)
 }

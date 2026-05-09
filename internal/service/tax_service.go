@@ -22,7 +22,6 @@ func (s TaxService) Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulatio
 	}
 
 	rule, err := s.ruleService.FindRule(request)
-
 	if err != nil {
 		return dto.TaxSimulationResponse{}, err
 	}
@@ -58,6 +57,53 @@ func (s TaxService) Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulatio
 		CFOP:         rule.CFOP,
 		RuleVersion:  rule.RuleVersion,
 		FromCache:    false,
+	}, nil
+}
+
+func (s TaxService) Compare(request dto.TaxSimulationRequest) (dto.TaxComparisonResponse, error) {
+	freightValue, err := decimal.NewFromString(request.FreightValue)
+	if err != nil {
+		return dto.TaxComparisonResponse{}, err
+	}
+
+	rule, err := s.ruleService.FindRule(request)
+	if err != nil {
+		return dto.TaxComparisonResponse{}, err
+	}
+
+	icmsAmount := calculateTaxAmount(freightValue, rule.ICMSRate)
+	ibsAmount := calculateTaxAmount(freightValue, rule.IBSRate)
+	cbsAmount := calculateTaxAmount(freightValue, rule.CBSRate)
+
+	currentTotalTax := icmsAmount
+	currentTotalWithTax := freightValue.Add(currentTotalTax)
+
+	reformTotalTax := icmsAmount.Add(ibsAmount).Add(cbsAmount)
+	reformTotalWithTax := freightValue.Add(reformTotalTax)
+
+	difference := reformTotalTax.Sub(currentTotalTax)
+
+	analysis := "Cenario da reforma manteve a mesma carga tributaria estimada."
+	if difference.GreaterThan(decimal.Zero) {
+		analysis = "Cenario da reforma apresentou aumento estimado de tributos."
+	} else if difference.LessThan(decimal.Zero) {
+		analysis = "Cenario da reforma apresentou reducao estimada de tributos."
+	}
+
+	return dto.TaxComparisonResponse{
+		FreightID: request.FreightID,
+		CurrentScenario: dto.TaxScenario{
+			BaseValue:    formatMoney(freightValue),
+			TotalTax:     formatMoney(currentTotalTax),
+			TotalWithTax: formatMoney(currentTotalWithTax),
+		},
+		ReformScenario: dto.TaxScenario{
+			BaseValue:    formatMoney(freightValue),
+			TotalTax:     formatMoney(reformTotalTax),
+			TotalWithTax: formatMoney(reformTotalWithTax),
+		},
+		Difference: formatMoney(difference),
+		Analysis:   analysis,
 	}, nil
 }
 

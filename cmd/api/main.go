@@ -6,11 +6,20 @@ import (
 
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/config"
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/handler"
+	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/service"
 )
 
 func main() {
 	cfg := config.Load()
-	router := handler.NewRouter(cfg)
+
+	taxService := service.NewTaxService()
+	cteService := service.NewCTeService()
+
+	taxHandler := handler.NewTaxHandler(taxService)
+	cteHandler := handler.NewCTeHandler(cteService)
+
+	router := handler.NewRouter(cfg, taxHandler, cteHandler)
+
 	addr := ":" + cfg.Port
 
 	fmt.Printf("Motor Fiscal API iniciado na porta %s\n", cfg.Port)

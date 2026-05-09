@@ -7,14 +7,14 @@ import (
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/middleware"
 )
 
-func NewRouter(cfg config.Config) http.Handler {
+func NewRouter(cfg config.Config, taxHandler TaxHandler, cteHandler CTeHandler) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", HealthHandler(cfg.Service, cfg.Version))
-	mux.HandleFunc("/api/v1/tax/simulate", TaxSimulationHandler())
-	mux.HandleFunc("/api/v1/cte/validate", CTeValidationHandler())
-	mux.HandleFunc("/api/v1/tax/compare", TaxComparisonHandler())
-	mux.HandleFunc("/api/v1/tax/batch", TaxBatchHandler())
+	mux.HandleFunc("/api/v1/tax/simulate", taxHandler.Simulate())
+	mux.HandleFunc("/api/v1/tax/compare", taxHandler.Compare())
+	mux.HandleFunc("/api/v1/tax/batch", taxHandler.Batch())
+	mux.HandleFunc("/api/v1/cte/validate", cteHandler.Validate())
 
 	return middleware.CorrelationID(mux)
 }

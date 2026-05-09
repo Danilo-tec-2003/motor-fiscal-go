@@ -8,6 +8,7 @@ import (
 
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/config"
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/middleware"
+	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/service"
 )
 
 func TestHealthHandler(t *testing.T) {
@@ -38,7 +39,7 @@ func TestHealtHandlerWithCorrelationID(t *testing.T) {
 		Version: "1.0.0",
 	}
 
-	router := NewRouter(cfg)
+	router := newTestRouter(cfg)
 
 	request := httptest.NewRequest(http.MethodGet, "/health", nil)
 	request.Header.Set(middleware.CorrelationIDHeader, "req-test-123")
@@ -62,7 +63,7 @@ func TestHealthHandlerGeneratesCorrelationID(t *testing.T) {
 		Version: "1.0.0",
 	}
 
-	router := NewRouter(cfg)
+	router := newTestRouter(cfg)
 
 	request := httptest.NewRequest(http.MethodGet, "/health", nil)
 	recorder := httptest.NewRecorder()
@@ -73,4 +74,15 @@ func TestHealthHandlerGeneratesCorrelationID(t *testing.T) {
 	if correlationID == "" {
 		t.Fatal("expected generated correlation id, got empty value")
 	}
+}
+
+func newTestRouter(cfg config.Config) http.Handler {
+	taxService := service.NewTaxService()
+	cteService := service.NewCTeService()
+
+	return NewRouter(
+		cfg,
+		NewTaxHandler(taxService),
+		NewCTeHandler(cteService),
+	)
 }

@@ -12,7 +12,22 @@ import (
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/validator"
 )
 
-func TaxSimulationHandler() http.HandlerFunc {
+type taxService interface {
+	Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error)
+	Compare(request dto.TaxSimulationRequest) (dto.TaxComparisonResponse, error)
+}
+
+type TaxHandler struct {
+	taxService taxService
+}
+
+func NewTaxHandler(taxService taxService) TaxHandler {
+	return TaxHandler{
+		taxService: taxService,
+	}
+}
+
+func (h TaxHandler) Simulate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		correlationID := middleware.GetCorrelationID(r.Context())
 
@@ -30,8 +45,7 @@ func TaxSimulationHandler() http.HandlerFunc {
 			return
 		}
 
-		taxService := service.NewTaxService()
-		response, err := taxService.Simulate(request)
+		response, err := h.taxService.Simulate(request)
 		if err != nil {
 			writeTaxServiceError(w, err, correlationID)
 			return
@@ -41,7 +55,7 @@ func TaxSimulationHandler() http.HandlerFunc {
 	}
 }
 
-func TaxComparisonHandler() http.HandlerFunc {
+func (h TaxHandler) Compare() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		correlationID := middleware.GetCorrelationID(r.Context())
 
@@ -59,8 +73,7 @@ func TaxComparisonHandler() http.HandlerFunc {
 			return
 		}
 
-		taxService := service.NewTaxService()
-		response, err := taxService.Compare(request)
+		response, err := h.taxService.Compare(request)
 		if err != nil {
 			writeTaxServiceError(w, err, correlationID)
 			return
@@ -70,7 +83,7 @@ func TaxComparisonHandler() http.HandlerFunc {
 	}
 }
 
-func TaxBatchHandler() http.HandlerFunc {
+func (h TaxHandler) Batch() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		correlationID := middleware.GetCorrelationID(r.Context())
 
@@ -99,7 +112,6 @@ func TaxBatchHandler() http.HandlerFunc {
 			return
 		}
 
-		taxService := service.NewTaxService()
 		response := dto.TaxBatchResponse{
 			TotalItems: len(request.Items),
 			Results:    []dto.TaxBatchItemResult{},
@@ -124,7 +136,7 @@ func TaxBatchHandler() http.HandlerFunc {
 				continue
 			}
 
-			simulation, err := taxService.Simulate(item)
+			simulation, err := h.taxService.Simulate(item)
 			if err != nil {
 				_, apiErr := taxServiceAPIError(err, correlationID)
 

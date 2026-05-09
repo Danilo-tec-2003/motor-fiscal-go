@@ -5,6 +5,21 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+type taxService interface {
+	Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error)
+	Compare(request dto.TaxSimulationRequest) (dto.TaxComparisonResponse, error)
+}
+
+type TaxHandler struct {
+	taxService taxService
+}
+
+func NewTaxHandler(taxService taxService) TaxHandler {
+	return TaxHandler{
+		taxService: taxService,
+	}
+}
+
 type TaxService struct {
 	ruleService FiscalRuleService
 }

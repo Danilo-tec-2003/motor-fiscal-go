@@ -17,8 +17,10 @@ func NewRouter(cfg config.Config, taxHandler TaxHandler, cteHandler CTeHandler) 
 	protectedMux.HandleFunc("/api/v1/tax/compare", taxHandler.Compare())
 	protectedMux.HandleFunc("/api/v1/tax/batch", taxHandler.Batch())
 	protectedMux.HandleFunc("/api/v1/cte/validate", cteHandler.Validate())
+	protectedMux.HandleFunc("/api/v1/", NotFoundHandler())
 
 	mux.Handle("/api/v1/", middleware.APIKey(cfg.InternalAPIKey, protectedMux))
+	mux.HandleFunc("/", NotFoundHandler())
 
 	return middleware.CorrelationID(mux)
 }

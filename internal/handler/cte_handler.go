@@ -12,7 +12,7 @@ import (
 )
 
 type cteService interface {
-	Validate(ctx context.Context, request dto.CTeValidationRequest) dto.CTeValidationResponse
+	Validate(ctx context.Context, request dto.CTeValidationRequest) (dto.CTeValidationResponse, error)
 }
 
 type CTeHandler struct {
@@ -64,7 +64,11 @@ func (h CTeHandler) Validate() http.HandlerFunc {
 			return
 		}
 
-		response := h.cteService.Validate(r.Context(), request)
+		response, err := h.cteService.Validate(r.Context(), request)
+		if err != nil {
+			writeTaxServiceError(w, err, correlationID)
+			return
+		}
 
 		WriteJSON(w, http.StatusOK, response)
 	}

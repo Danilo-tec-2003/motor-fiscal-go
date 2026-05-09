@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/dto"
 	apierrors "github.com/Danilo-tec-2003/motor-fiscal-go/internal/errors"
@@ -17,7 +18,7 @@ func NewCTeService(ruleService FiscalRuleService) CTeService {
 	}
 }
 
-func (s CTeService) Validate(ctx context.Context, request dto.CTeValidationRequest) dto.CTeValidationResponse {
+func (s CTeService) Validate(ctx context.Context, request dto.CTeValidationRequest) (dto.CTeValidationResponse, error) {
 	var validationErrors []apierrors.ValidationDetail
 	var warnings []apierrors.ValidationDetail
 
@@ -53,11 +54,13 @@ func (s CTeService) Validate(ctx context.Context, request dto.CTeValidationReque
 	rule, err := s.ruleService.FindRule(ctx, request.TaxSimulationRequest)
 	if err == nil {
 		cfop = rule.CFOP
-	} else {
+	} else if errors.Is(err, ErrFiscalRuleNotFound) {
 		warnings = append(warnings, apierrors.ValidationDetail{
 			Field:   "tax_simulation",
 			Message: "Nao foi encontrada regra fiscal para determinar CFOP.",
 		})
+	} else {
+		return dto.CTeValidationResponse{}, err
 	}
 
 	return dto.CTeValidationResponse{
@@ -66,5 +69,5 @@ func (s CTeService) Validate(ctx context.Context, request dto.CTeValidationReque
 		CFOP:      cfop,
 		Errors:    validationErrors,
 		Warnings:  warnings,
-	}
+	}, nil
 }

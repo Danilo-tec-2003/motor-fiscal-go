@@ -222,15 +222,10 @@ func taxServiceAPIError(err error, correlationID string) (int, apierrors.APIErro
 		}
 	}
 
-	return http.StatusUnprocessableEntity, apierrors.APIError{
-		Code:          "VALIDATION_ERROR",
-		Message:       "Payload invalido.",
+	return http.StatusInternalServerError, apierrors.APIError{
+		Code:          "INTERNAL_ERROR",
+		Message:       "Erro interno inesperado.",
 		CorrelationID: correlationID,
-		Details: []apierrors.ValidationDetail{
-			{
-				Field:   "freight_value",
-				Message: "Valor monetario invalido.",
-			},
-		},
+		Details:       []apierrors.ValidationDetail{},
 	}
 }

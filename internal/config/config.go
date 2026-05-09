@@ -3,9 +3,10 @@ package config
 import "os"
 
 type Config struct {
-	Port    string
-	Service string
-	Version string
+	Port           string
+	Service        string
+	Version        string
+	InternalAPIKey string
 }
 
 func Load() Config {
@@ -14,9 +15,15 @@ func Load() Config {
 		port = "8080"
 	}
 
+	internalAPIKey := os.Getenv("INTERNAL_API_KEY")
+	if internalAPIKey == "" {
+		internalAPIKey = "dev-token"
+	}
+
 	return Config{
-		Port:    port,
-		Service: "motor-fiscal",
-		Version: "1.0.0",
+		Port:           port,
+		Service:        "motor-fiscal",
+		Version:        "1.0.0",
+		InternalAPIKey: internalAPIKey,
 	}
 }

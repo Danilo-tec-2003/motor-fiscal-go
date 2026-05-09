@@ -7,6 +7,7 @@ type Config struct {
 	Service        string
 	Version        string
 	InternalAPIKey string
+	DatabaseURL    string
 }
 
 func Load() Config {
@@ -20,10 +21,16 @@ func Load() Config {
 		internalAPIKey = "dev-token"
 	}
 
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = "postgres://motor_fiscal:motor_fiscal@localhost:5433/motor_fiscal?sslmode=disable"
+	}
+
 	return Config{
 		Port:           port,
 		Service:        "motor-fiscal",
 		Version:        "1.0.0",
 		InternalAPIKey: internalAPIKey,
+		DatabaseURL:    databaseURL,
 	}
 }

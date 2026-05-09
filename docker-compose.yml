@@ -1,4 +1,22 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: motor-fiscal-postgres
+    environment:
+      POSTGRES_DB: motor_fiscal
+      POSTGRES_USER: motor_fiscal
+      POSTGRES_PASSWORD: motor_fiscal
+    ports:
+      - "5433:5432"
+    volumes:
+      - motor_fiscal_pg_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U motor_fiscal -d motor_fiscal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   motor-fiscal:
     build:
       context: .
@@ -10,4 +28,10 @@ services:
       APP_PORT: "8080"
       APP_ENV: ${APP_ENV:-development}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-token}
+      DATABASE_URL: postgres://motor_fiscal:motor_fiscal@postgres:5432/motor_fiscal?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
 
+volumes:
+  motor_fiscal_pg_data:

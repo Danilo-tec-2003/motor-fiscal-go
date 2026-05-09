@@ -53,3 +53,9 @@ Descrever cmd, internal, handler, service, client, dto, model, config, errors, v
 - Token fora do Git
 - Testes de cálculo
 - Tratamento de erro padronizado
+
+## Como Rodar Localmente
+```bash
+go run ./cmd/api ||
+docker compose up --build
+

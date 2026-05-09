@@ -1,14 +1,18 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/config"
+	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/dto"
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/middleware"
+	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/model"
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/service"
+	"github.com/shopspring/decimal"
 )
 
 func TestHealthHandler(t *testing.T) {
@@ -77,12 +81,37 @@ func TestHealthHandlerGeneratesCorrelationID(t *testing.T) {
 }
 
 func newTestRouter(cfg config.Config) http.Handler {
-	taxService := service.NewTaxService()
-	cteService := service.NewCTeService()
+	ruleService := service.NewFiscalRuleService(fakeFiscalRuleRepository{})
+	taxService := service.NewTaxService(ruleService, fakeFiscalSimulationRepository{})
+	cteService := service.NewCTeService(ruleService)
 
 	return NewRouter(
 		cfg,
 		NewTaxHandler(taxService),
 		NewCTeHandler(cteService),
 	)
+}
+
+type fakeFiscalRuleRepository struct{}
+
+func (fakeFiscalRuleRepository) FindActiveRule(ctx context.Context, request dto.TaxSimulationRequest) (model.FiscalRule, error) {
+	return model.FiscalRule{
+		RuleVersion:   "2026.01",
+		OriginUF:      request.OriginUF,
+		DestinationUF: request.DestinationUF,
+		OperationType: request.OperationType,
+		CustomerType:  request.CustomerType,
+		ICMSRate:      decimal.RequireFromString("12.00"),
+		IBSRate:       decimal.RequireFromString("3.60"),
+		CBSRate:       decimal.RequireFromString("0.90"),
+		CFOP:          "6351",
+		ValidFrom:     "2026-01-01",
+		ValidTo:       "2026-12-31",
+	}, nil
+}
+
+type fakeFiscalSimulationRepository struct{}
+
+func (fakeFiscalSimulationRepository) Save(ctx context.Context, request dto.TaxSimulationRequest, response dto.TaxSimulationResponse) error {
+	return nil
 }

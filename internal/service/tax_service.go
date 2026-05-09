@@ -1,42 +1,36 @@
 package service
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/dto"
 	"github.com/shopspring/decimal"
 )
 
-type taxService interface {
-	Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error)
-	Compare(request dto.TaxSimulationRequest) (dto.TaxComparisonResponse, error)
-}
-
-type TaxHandler struct {
-	taxService taxService
-}
-
-func NewTaxHandler(taxService taxService) TaxHandler {
-	return TaxHandler{
-		taxService: taxService,
-	}
+type simulationRepository interface {
+	Save(ctx context.Context, request dto.TaxSimulationRequest, response dto.TaxSimulationResponse) error
 }
 
 type TaxService struct {
-	ruleService FiscalRuleService
+	ruleService          FiscalRuleService
+	simulationRepository simulationRepository
 }
 
-func NewTaxService() TaxService {
+func NewTaxService(ruleService FiscalRuleService, simulationRepository simulationRepository) TaxService {
 	return TaxService{
-		ruleService: NewFiscalRuleService(),
+		ruleService:          ruleService,
+		simulationRepository: simulationRepository,
 	}
 }
 
-func (s TaxService) Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error) {
+func (s TaxService) Simulate(ctx context.Context, request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error) {
 	freightValue, err := decimal.NewFromString(request.FreightValue)
 	if err != nil {
 		return dto.TaxSimulationResponse{}, err
 	}
 
-	rule, err := s.ruleService.FindRule(request)
+	rule, err := s.ruleService.FindRule(ctx, request)
 	if err != nil {
 		return dto.TaxSimulationResponse{}, err
 	}
@@ -52,7 +46,7 @@ func (s TaxService) Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulatio
 	totalTax := icmsAmount.Add(ibsAmount).Add(cbsAmount)
 	totalWithTax := freightValue.Add(totalTax)
 
-	return dto.TaxSimulationResponse{
+	response := dto.TaxSimulationResponse{
 		FreightID: request.FreightID,
 		BaseValue: formatMoney(freightValue),
 		ICMS: dto.TaxAmount{
@@ -72,16 +66,22 @@ func (s TaxService) Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulatio
 		CFOP:         rule.CFOP,
 		RuleVersion:  rule.RuleVersion,
 		FromCache:    false,
-	}, nil
+	}
+
+	if err := s.simulationRepository.Save(ctx, request, response); err != nil {
+		return dto.TaxSimulationResponse{}, fmt.Errorf("save fiscal simulation: %w", err)
+	}
+
+	return response, nil
 }
 
-func (s TaxService) Compare(request dto.TaxSimulationRequest) (dto.TaxComparisonResponse, error) {
+func (s TaxService) Compare(ctx context.Context, request dto.TaxSimulationRequest) (dto.TaxComparisonResponse, error) {
 	freightValue, err := decimal.NewFromString(request.FreightValue)
 	if err != nil {
 		return dto.TaxComparisonResponse{}, err
 	}
 
-	rule, err := s.ruleService.FindRule(request)
+	rule, err := s.ruleService.FindRule(ctx, request)
 	if err != nil {
 		return dto.TaxComparisonResponse{}, err
 	}

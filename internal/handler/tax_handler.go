@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -13,8 +14,8 @@ import (
 )
 
 type taxService interface {
-	Simulate(request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error)
-	Compare(request dto.TaxSimulationRequest) (dto.TaxComparisonResponse, error)
+	Simulate(ctx context.Context, request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error)
+	Compare(ctx context.Context, request dto.TaxSimulationRequest) (dto.TaxComparisonResponse, error)
 }
 
 type TaxHandler struct {
@@ -45,7 +46,7 @@ func (h TaxHandler) Simulate() http.HandlerFunc {
 			return
 		}
 
-		response, err := h.taxService.Simulate(request)
+		response, err := h.taxService.Simulate(r.Context(), request)
 		if err != nil {
 			writeTaxServiceError(w, err, correlationID)
 			return
@@ -73,7 +74,7 @@ func (h TaxHandler) Compare() http.HandlerFunc {
 			return
 		}
 
-		response, err := h.taxService.Compare(request)
+		response, err := h.taxService.Compare(r.Context(), request)
 		if err != nil {
 			writeTaxServiceError(w, err, correlationID)
 			return
@@ -136,7 +137,7 @@ func (h TaxHandler) Batch() http.HandlerFunc {
 				continue
 			}
 
-			simulation, err := h.taxService.Simulate(item)
+			simulation, err := h.taxService.Simulate(r.Context(), item)
 			if err != nil {
 				_, apiErr := taxServiceAPIError(err, correlationID)
 

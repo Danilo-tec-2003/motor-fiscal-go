@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -11,7 +12,7 @@ import (
 )
 
 type cteService interface {
-	Validate(request dto.CTeValidationRequest) dto.CTeValidationResponse
+	Validate(ctx context.Context, request dto.CTeValidationRequest) dto.CTeValidationResponse
 }
 
 type CTeHandler struct {
@@ -63,7 +64,7 @@ func (h CTeHandler) Validate() http.HandlerFunc {
 			return
 		}
 
-		response := h.cteService.Validate(request)
+		response := h.cteService.Validate(r.Context(), request)
 
 		WriteJSON(w, http.StatusOK, response)
 	}

@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+
 	"github.com/Danilo-tec-2003/motor-fiscal-go/internal/dto"
 	apierrors "github.com/Danilo-tec-2003/motor-fiscal-go/internal/errors"
 )
@@ -9,13 +11,13 @@ type CTeService struct {
 	ruleService FiscalRuleService
 }
 
-func NewCTeService() CTeService {
+func NewCTeService(ruleService FiscalRuleService) CTeService {
 	return CTeService{
-		ruleService: NewFiscalRuleService(),
+		ruleService: ruleService,
 	}
 }
 
-func (s CTeService) Validate(request dto.CTeValidationRequest) dto.CTeValidationResponse {
+func (s CTeService) Validate(ctx context.Context, request dto.CTeValidationRequest) dto.CTeValidationResponse {
 	var validationErrors []apierrors.ValidationDetail
 	var warnings []apierrors.ValidationDetail
 
@@ -48,7 +50,7 @@ func (s CTeService) Validate(request dto.CTeValidationRequest) dto.CTeValidation
 	}
 
 	cfop := ""
-	rule, err := s.ruleService.FindRule(request.TaxSimulationRequest)
+	rule, err := s.ruleService.FindRule(ctx, request.TaxSimulationRequest)
 	if err == nil {
 		cfop = rule.CFOP
 	} else {

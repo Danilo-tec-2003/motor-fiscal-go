@@ -54,6 +54,97 @@ paths:
                 service: motor-fiscal
                 version: 1.0.0
 
+  /api/v1/tax/preview:
+    post:
+      tags:
+        - Tax
+      summary: Previsualiza o calculo fiscal de um frete
+      description: >
+        Recebe dados fiscais de um frete ainda nao salvo, seleciona a regra
+        fiscal compativel pelo motor de regras e retorna os campos fiscais para
+        preenchimento readonly na tela de cadastro. Diferente de
+        /api/v1/tax/simulate, este endpoint nao persiste auditoria fiscal.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaxPreviewRequest"
+            example:
+              operation_date: "2026-05-10"
+              origin_uf: CE
+              destination_uf: RN
+              freight_value: "3200.00"
+              customer_type: PJ
+              operation_type: INTERESTADUAL
+      responses:
+        "200":
+          description: Preview calculado com sucesso
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxSimulationResponse"
+              example:
+                freight_id: 0
+                base_value: "3200.00"
+                icms:
+                  rate: "12.00"
+                  amount: "384.00"
+                ibs:
+                  rate: "3.60"
+                  amount: "115.20"
+                cbs:
+                  rate: "0.90"
+                  amount: "28.80"
+                total_tax: "528.00"
+                total_with_tax: "3728.00"
+                cfop: "6351"
+                rule_id: 10
+                rule_code: FALLBACK_INTERESTADUAL_PJ_2026_01
+                rule_version: "2026.01"
+                rule_status: PENDING_REVIEW
+                calculation_basis: FREIGHT_VALUE
+                calculation_details:
+                  - tax_name: ICMS
+                    base_value: "3200.00"
+                    base_reduction_rate: "0.00"
+                    effective_base_value: "3200.00"
+                    rate: "12.00"
+                    amount: "384.00"
+                    formula: effective_base_value * rate / 100
+                  - tax_name: IBS
+                    base_value: "3200.00"
+                    base_reduction_rate: "0.00"
+                    effective_base_value: "3200.00"
+                    rate: "3.60"
+                    amount: "115.20"
+                    formula: effective_base_value * rate / 100
+                  - tax_name: CBS
+                    base_value: "3200.00"
+                    base_reduction_rate: "0.00"
+                    effective_base_value: "3200.00"
+                    rate: "0.90"
+                    amount: "28.80"
+                    formula: effective_base_value * rate / 100
+                from_cache: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/RuleNotFound"
+        "409":
+          $ref: "#/components/responses/RuleConflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /api/v1/tax/simulate:
     post:
       tags:
@@ -633,6 +724,32 @@ components:
           format: date
           description: Data usada para selecionar a regra fiscal vigente.
           example: "2026-03-10"
+        origin_uf:
+          $ref: "#/components/schemas/UF"
+        destination_uf:
+          $ref: "#/components/schemas/UF"
+        freight_value:
+          $ref: "#/components/schemas/Money"
+        customer_type:
+          $ref: "#/components/schemas/CustomerType"
+        operation_type:
+          $ref: "#/components/schemas/OperationType"
+
+    TaxPreviewRequest:
+      type: object
+      required:
+        - operation_date
+        - origin_uf
+        - destination_uf
+        - freight_value
+        - customer_type
+        - operation_type
+      properties:
+        operation_date:
+          type: string
+          format: date
+          description: Data usada para selecionar a regra fiscal vigente.
+          example: "2026-05-10"
         origin_uf:
           $ref: "#/components/schemas/UF"
         destination_uf:

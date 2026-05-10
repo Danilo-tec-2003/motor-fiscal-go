@@ -98,6 +98,7 @@ Regra recomendada:
 | Metodo | Rota | Responsabilidade |
 |---|---|---|
 | GET | `/health` | Verificar se o servico esta online |
+| POST | `/api/v1/tax/preview` | Previsualizar calculo fiscal antes de salvar o frete |
 | POST | `/api/v1/tax/simulate` | Simular calculo fiscal de um frete |
 | POST | `/api/v1/tax/compare` | Comparar modelo atual com reforma tributaria |
 | POST | `/api/v1/tax/batch` | Calcular varios fretes em lote |
@@ -245,6 +246,50 @@ Campos de auditoria:
 | `rule_status` | Status da regra: `DRAFT`, `PENDING_REVIEW`, `APPROVED` ou `INACTIVE` |
 | `calculation_basis` | Base usada no calculo. Hoje: `FREIGHT_VALUE` |
 | `calculation_details` | Lista com a memoria de calculo de cada imposto |
+
+## Endpoint: POST /api/v1/tax/preview
+
+Responsabilidade:
+
+- previsualizar o calculo fiscal na tela de cadastro de frete;
+- permitir preencher campos readonly antes do frete existir no banco;
+- usar o mesmo motor de regras de `/api/v1/tax/simulate`;
+- nao persistir auditoria fiscal, pois ainda nao existe `freight_id` definitivo.
+
+Request:
+
+```json
+{
+  "operation_date": "2026-05-10",
+  "origin_uf": "CE",
+  "destination_uf": "RN",
+  "freight_value": "3200.00",
+  "customer_type": "PJ",
+  "operation_type": "INTERESTADUAL"
+}
+```
+
+Campos obrigatorios:
+
+| Campo | Tipo | Observacao |
+|---|---|---|
+| `operation_date` | string/date | Data usada para selecionar regra fiscal vigente |
+| `origin_uf` | string | UF de origem |
+| `destination_uf` | string | UF de destino |
+| `freight_value` | string | Valor monetario com duas casas decimais |
+| `customer_type` | string | `PF` ou `PJ` |
+| `operation_type` | string | `INTERNA` ou `INTERESTADUAL` |
+
+Response `200`:
+
+Usa o mesmo contrato de resposta de `/api/v1/tax/simulate`, mas com `freight_id`
+igual a `0`, pois o frete ainda nao foi salvo no sistema Java.
+
+Observacao:
+
+Esse endpoint e ideal para o botao **Motor Fiscal** no cadastro. O endpoint
+`/api/v1/tax/simulate` deve ser usado no fechamento/emissao do frete, quando ja
+existe `freight_id` e a auditoria pode ser persistida.
 
 ## Endpoint: POST /api/v1/tax/compare
 

@@ -114,6 +114,7 @@ Responsabilidades principais:
 | Metodo | Rota | Autenticacao | Responsabilidade |
 |---|---|---|---|
 | `GET` | `/health` | Nao | Verificar se a API esta online |
+| `POST` | `/api/v1/tax/preview` | Sim | Previsualizar calculo fiscal antes de salvar o frete |
 | `POST` | `/api/v1/tax/simulate` | Sim | Calcular impostos de um frete |
 | `POST` | `/api/v1/tax/compare` | Sim | Comparar modelo atual com cenario da reforma |
 | `POST` | `/api/v1/tax/batch` | Sim | Processar multiplos fretes |
@@ -171,6 +172,33 @@ Status de regra:
 | `PENDING_REVIEW` | Pendente de validacao contabil |
 | `APPROVED` | Validada para uso |
 | `INACTIVE` | Desativada |
+
+### Cobertura Demonstrativa Nacional
+
+Para o MVP, o projeto possui regras fallback demonstrativas que permitem calcular fretes para qualquer combinacao de UF.
+
+Essas regras existem para deixar o fluxo completo apresentavel:
+
+```text
+cadastro do frete -> preview fiscal -> emissao do frete -> calculo definitivo -> auditoria
+```
+
+Como funciona:
+
+- regras especificas por UF continuam tendo prioridade maior;
+- se nao existir regra especifica para a combinacao de origem/destino, o motor usa uma regra fallback;
+- o fallback considera `operation_type` e `customer_type`;
+- regras fallback usam prioridade `900`;
+- regras especificas devem usar prioridade menor, por exemplo `100`;
+- as regras fallback ficam como `PENDING_REVIEW`;
+- a fonte fica marcada como `INTERNAL_NOTE` e `PENDING_CONFIRMATION`.
+
+Essa escolha evita dois problemas:
+
+- nao travar a demonstracao por falta de uma base fiscal nacional completa;
+- nao fingir que regras demonstrativas sao regras fiscais oficiais.
+
+Para producao, o caminho correto e cadastrar regras especificas com fonte legal confirmada, vigencia, revisao contabil e status `APPROVED`.
 
 ## Variaveis De Ambiente
 

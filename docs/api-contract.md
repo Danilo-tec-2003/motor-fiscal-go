@@ -138,10 +138,11 @@ Responsabilidade:
 
 - receber dados de um frete;
 - validar campos obrigatorios;
-- buscar regra fiscal vigente;
+- selecionar regra fiscal vigente pelo motor de regras;
 - calcular ICMS, IBS e CBS;
 - determinar CFOP;
 - retornar totais fiscais;
+- retornar regra aplicada e detalhes auditaveis do calculo;
 - informar se o resultado veio do cache.
 
 Request:
@@ -191,16 +192,59 @@ Response `200`:
   "total_tax": "577.50",
   "total_with_tax": "4077.50",
   "cfop": "6351",
+  "rule_id": 1,
+  "rule_code": "RULE_PE_SP_INTERESTADUAL_PJ_2026_01_2026_01_01",
   "rule_version": "2026.01",
+  "rule_status": "PENDING_REVIEW",
+  "calculation_basis": "FREIGHT_VALUE",
+  "calculation_details": [
+    {
+      "tax_name": "ICMS",
+      "base_value": "3500.00",
+      "base_reduction_rate": "0.00",
+      "effective_base_value": "3500.00",
+      "rate": "12.00",
+      "amount": "420.00",
+      "formula": "effective_base_value * rate / 100"
+    },
+    {
+      "tax_name": "IBS",
+      "base_value": "3500.00",
+      "base_reduction_rate": "0.00",
+      "effective_base_value": "3500.00",
+      "rate": "3.60",
+      "amount": "126.00",
+      "formula": "effective_base_value * rate / 100"
+    },
+    {
+      "tax_name": "CBS",
+      "base_value": "3500.00",
+      "base_reduction_rate": "0.00",
+      "effective_base_value": "3500.00",
+      "rate": "0.90",
+      "amount": "31.50",
+      "formula": "effective_base_value * rate / 100"
+    }
+  ],
   "from_cache": false
 }
 ```
 
 Observacao importante:
 
-Os valores acima sao exemplos do plano do projeto. Aliquotas, CFOPs e regras
-reais precisam ser confirmados na regra fiscal cadastrada e na documentacao
-oficial aplicavel.
+Os valores acima sao exemplos de desenvolvimento. Aliquotas, CFOPs e regras
+reais precisam estar cadastrados no motor de regras, possuir fonte fiscal
+confirmada e passar por validacao contabil antes de uso produtivo.
+
+Campos de auditoria:
+
+| Campo | Significado |
+|---|---|
+| `rule_id` | ID interno da regra aplicada |
+| `rule_code` | Codigo estavel da regra fiscal selecionada |
+| `rule_status` | Status da regra: `DRAFT`, `PENDING_REVIEW`, `APPROVED` ou `INACTIVE` |
+| `calculation_basis` | Base usada no calculo. Hoje: `FREIGHT_VALUE` |
+| `calculation_details` | Lista com a memoria de calculo de cada imposto |
 
 ## Endpoint: POST /api/v1/tax/compare
 
@@ -290,7 +334,40 @@ Response conceitual:
         "total_tax": "577.50",
         "total_with_tax": "4077.50",
         "cfop": "6351",
+        "rule_id": 1,
+        "rule_code": "RULE_PE_SP_INTERESTADUAL_PJ_2026_01_2026_01_01",
         "rule_version": "2026.01",
+        "rule_status": "PENDING_REVIEW",
+        "calculation_basis": "FREIGHT_VALUE",
+        "calculation_details": [
+          {
+            "tax_name": "ICMS",
+            "base_value": "3500.00",
+            "base_reduction_rate": "0.00",
+            "effective_base_value": "3500.00",
+            "rate": "12.00",
+            "amount": "420.00",
+            "formula": "effective_base_value * rate / 100"
+          },
+          {
+            "tax_name": "IBS",
+            "base_value": "3500.00",
+            "base_reduction_rate": "0.00",
+            "effective_base_value": "3500.00",
+            "rate": "3.60",
+            "amount": "126.00",
+            "formula": "effective_base_value * rate / 100"
+          },
+          {
+            "tax_name": "CBS",
+            "base_value": "3500.00",
+            "base_reduction_rate": "0.00",
+            "effective_base_value": "3500.00",
+            "rate": "0.90",
+            "amount": "31.50",
+            "formula": "effective_base_value * rate / 100"
+          }
+        ],
         "from_cache": false
       }
     }
@@ -395,6 +472,9 @@ Codigos de erro iniciais:
 | `UNAUTHORIZED` | `X-API-Key` ausente ou invalido |
 | `VALIDATION_ERROR` | Campos invalidos ou inconsistentes |
 | `FISCAL_RULE_NOT_FOUND` | Nenhuma regra fiscal vigente encontrada |
+| `FISCAL_RULE_CONFLICT` | Mais de uma regra fiscal compativel foi encontrada |
+| `FISCAL_RULE_INCOMPLETE` | Regra fiscal sem impostos obrigatorios para calculo |
+| `UNSUPPORTED_CALCULATION_BASIS` | Base de calculo fiscal ainda nao suportada |
 | `EXTERNAL_TIMEOUT` | Timeout em API externa |
 | `EXTERNAL_UNAVAILABLE` | API externa indisponivel |
 | `INTERNAL_ERROR` | Erro inesperado no microservico |
@@ -409,6 +489,7 @@ Status HTTP recomendados:
 | `400` | JSON invalido |
 | `401` | Token ausente ou invalido |
 | `404` | Regra ou recurso nao encontrado |
+| `409` | Conflito entre regras fiscais compativeis |
 | `422` | Dados em JSON validos, mas fiscalmente invalidos |
 | `500` | Erro interno inesperado |
 | `501` | Endpoint previsto, mas ainda nao implementado |
@@ -437,8 +518,17 @@ equivalente.
 
 ## Regras Fiscais
 
-O calculo fiscal depende de uma regra vigente. A regra deve considerar pelo
-menos:
+O calculo fiscal depende de uma regra vigente selecionada pelo motor de regras.
+O motor deve:
+
+1. buscar regras candidatas pela vigencia e status;
+2. avaliar as condicoes cadastradas em `fiscal_rule_conditions`;
+3. ordenar regras compativeis por prioridade;
+4. detectar conflito quando regras equivalentes tiverem mesma prioridade;
+5. usar os impostos cadastrados em `fiscal_rule_taxes`;
+6. retornar uma memoria de calculo auditavel.
+
+A regra deve considerar pelo menos:
 
 - UF origem;
 - UF destino;
@@ -451,18 +541,28 @@ menos:
 - vigencia inicial e final;
 - status ativo.
 
-Campos sugeridos para uma regra:
+Tabelas principais do motor:
+
+```text
+fiscal_rules
+fiscal_rule_conditions
+fiscal_rule_taxes
+fiscal_rule_sources
+fiscal_rule_accounting_reviews
+fiscal_simulations
+fiscal_simulation_tax_details
+```
+
+Campos principais de `fiscal_rules`:
 
 ```text
 id
+rule_code
 rule_version
-origin_uf
-destination_uf
-operation_type
-customer_type
-icms_rate
-ibs_rate
-cbs_rate
+description
+priority
+status
+calculation_basis
 cfop
 valid_from
 valid_to
@@ -470,6 +570,41 @@ active
 created_at
 updated_at
 ```
+
+Exemplo conceitual de condicoes:
+
+```text
+origin_uf = PE
+destination_uf = SP
+operation_type = INTERESTADUAL
+customer_type = PJ
+```
+
+Exemplo conceitual de impostos da regra:
+
+```text
+ICMS -> 12.00
+IBS  -> 3.60
+CBS  -> 0.90
+```
+
+Status de regra:
+
+| Status | Uso |
+|---|---|
+| `DRAFT` | Regra em rascunho |
+| `PENDING_REVIEW` | Regra pendente de validacao contabil |
+| `APPROVED` | Regra validada para uso |
+| `INACTIVE` | Regra desativada |
+
+Auditoria persistida:
+
+Quando `/api/v1/tax/simulate` roda com sucesso, o Motor Fiscal salva:
+
+- resumo em `fiscal_simulations`;
+- detalhe por imposto em `fiscal_simulation_tax_details`;
+- regra aplicada (`rule_id`, `rule_code`, `rule_status`);
+- base, aliquota, valor calculado e formula.
 
 ## Cache
 

@@ -222,6 +222,20 @@ func taxServiceAPIError(err error, correlationID string) (int, apierrors.APIErro
 		}
 	}
 
+	if errors.Is(err, service.ErrFiscalRuleConflict) {
+		return http.StatusConflict, apierrors.APIError{
+			Code:          "FISCAL_RULE_CONFLICT",
+			Message:       "Mais de uma regra fiscal compativel foi encontrada.",
+			CorrelationID: correlationID,
+			Details: []apierrors.ValidationDetail{
+				{
+					Field:   "fiscal_rule",
+					Message: "Revise prioridades, vigencias e condicoes das regras fiscais.",
+				},
+			},
+		}
+	}
+
 	return http.StatusInternalServerError, apierrors.APIError{
 		Code:          "INTERNAL_ERROR",
 		Message:       "Erro interno inesperado.",

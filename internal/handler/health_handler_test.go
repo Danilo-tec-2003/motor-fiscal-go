@@ -94,19 +94,45 @@ func newTestRouter(cfg config.Config) http.Handler {
 
 type fakeFiscalRuleRepository struct{}
 
-func (fakeFiscalRuleRepository) FindActiveRule(ctx context.Context, request dto.TaxSimulationRequest) (model.FiscalRule, error) {
-	return model.FiscalRule{
-		RuleVersion:   "2026.01",
-		OriginUF:      request.OriginUF,
-		DestinationUF: request.DestinationUF,
-		OperationType: request.OperationType,
-		CustomerType:  request.CustomerType,
-		ICMSRate:      decimal.RequireFromString("12.00"),
-		IBSRate:       decimal.RequireFromString("3.60"),
-		CBSRate:       decimal.RequireFromString("0.90"),
-		CFOP:          "6351",
-		ValidFrom:     "2026-01-01",
-		ValidTo:       "2026-12-31",
+func (fakeFiscalRuleRepository) FindCandidateRules(ctx context.Context, request dto.TaxSimulationRequest) ([]model.FiscalRuleEngine, error) {
+	return []model.FiscalRuleEngine{
+		{
+			ID:               1,
+			RuleCode:         "RULE_TEST",
+			RuleVersion:      "2026.01",
+			Priority:         100,
+			Status:           model.FiscalRuleStatusApproved,
+			CalculationBasis: model.CalculationBasisFreightValue,
+			CFOP:             "6351",
+			ValidFrom:        "2026-01-01",
+			ValidTo:          "2026-12-31",
+			Active:           true,
+			Conditions: []model.FiscalRuleCondition{
+				{
+					FiscalRuleID: 1,
+					FieldName:    "origin_uf",
+					Operator:     model.RuleConditionOperatorEquals,
+					FieldValue:   request.OriginUF,
+				},
+			},
+			Taxes: []model.FiscalRuleTax{
+				{
+					FiscalRuleID: 1,
+					TaxName:      model.TaxNameICMS,
+					Rate:         decimal.RequireFromString("12.00"),
+				},
+				{
+					FiscalRuleID: 1,
+					TaxName:      model.TaxNameIBS,
+					Rate:         decimal.RequireFromString("3.60"),
+				},
+				{
+					FiscalRuleID: 1,
+					TaxName:      model.TaxNameCBS,
+					Rate:         decimal.RequireFromString("0.90"),
+				},
+			},
+		},
 	}, nil
 }
 

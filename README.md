@@ -22,7 +22,7 @@ Ja implementado:
 - contrato OpenAPI;
 - testes do motor de regras e do calculo fiscal.
 
-Importante: as regras fiscais atuais sao demonstrativas e estao marcadas como `PENDING_REVIEW`. Para uso produtivo, as regras devem receber fonte oficial confirmada e validacao contabil.
+Aviso de escopo: as regras fiscais atuais sao demonstrativas e estao marcadas como `PENDING_REVIEW`. Para uso produtivo, as regras devem receber fonte oficial confirmada e validacao contabil. O objetivo deste MVP e demonstrar arquitetura, rastreabilidade, motor de regras e memoria de calculo.
 
 ## Problema Resolvido
 
@@ -418,7 +418,6 @@ No Java, o token deve ficar no backend, por configuracao de ambiente.
 
 ## Roadmap
 
-- Finalizar README e contrato de API;
 - adicionar logs estruturados por request;
 - criar endpoints administrativos de regras fiscais;
 - criar relatorios fiscais;
@@ -440,6 +439,7 @@ No Java, o token deve ficar no backend, por configuracao de ambiente.
 - [x] Calculo auditavel
 - [x] Persistencia da auditoria
 - [x] Testes do motor fiscal
+- [x] README publico de apresentacao
 - [ ] Logs estruturados
 - [ ] CI
 - [ ] Integracao com sistema Java

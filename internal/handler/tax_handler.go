@@ -15,6 +15,7 @@ import (
 
 type taxService interface {
 	Simulate(ctx context.Context, request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error)
+	Preview(ctx context.Context, request dto.TaxPreviewRequest) (dto.TaxSimulationResponse, error)
 	Compare(ctx context.Context, request dto.TaxSimulationRequest) (dto.TaxComparisonResponse, error)
 }
 
@@ -47,6 +48,34 @@ func (h TaxHandler) Simulate() http.HandlerFunc {
 		}
 
 		response, err := h.taxService.Simulate(r.Context(), request)
+		if err != nil {
+			writeTaxServiceError(w, err, correlationID)
+			return
+		}
+
+		WriteJSON(w, http.StatusOK, response)
+	}
+}
+
+func (h TaxHandler) Preview() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		correlationID := middleware.GetCorrelationID(r.Context())
+
+		if r.Method != http.MethodPost {
+			writeTaxMethodNotAllowed(w, correlationID)
+			return
+		}
+
+		var request dto.TaxPreviewRequest
+		if !decodeJSON(w, r, correlationID, &request) {
+			return
+		}
+
+		if !validateTaxPreviewRequest(w, request, correlationID) {
+			return
+		}
+
+		response, err := h.taxService.Preview(r.Context(), request)
 		if err != nil {
 			writeTaxServiceError(w, err, correlationID)
 			return
@@ -178,6 +207,21 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, correlationID string, ta
 
 func validateTaxRequest(w http.ResponseWriter, request dto.TaxSimulationRequest, correlationID string) bool {
 	details := validator.ValidateTaxSimulationRequest(request)
+	if len(details) == 0 {
+		return true
+	}
+
+	WriteError(w, http.StatusUnprocessableEntity, apierrors.APIError{
+		Code:          "VALIDATION_ERROR",
+		Message:       "Payload invalido.",
+		CorrelationID: correlationID,
+		Details:       details,
+	})
+	return false
+}
+
+func validateTaxPreviewRequest(w http.ResponseWriter, request dto.TaxPreviewRequest, correlationID string) bool {
+	details := validator.ValidateTaxPreviewRequest(request)
 	if len(details) == 0 {
 		return true
 	}

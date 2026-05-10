@@ -14,6 +14,7 @@ func NewRouter(cfg config.Config, taxHandler TaxHandler, cteHandler CTeHandler) 
 
 	protectedMux := http.NewServeMux()
 	protectedMux.HandleFunc("/api/v1/tax/simulate", taxHandler.Simulate())
+	protectedMux.HandleFunc("/api/v1/tax/preview", taxHandler.Preview())
 	protectedMux.HandleFunc("/api/v1/tax/compare", taxHandler.Compare())
 	protectedMux.HandleFunc("/api/v1/tax/batch", taxHandler.Batch())
 	protectedMux.HandleFunc("/api/v1/cte/validate", cteHandler.Validate())

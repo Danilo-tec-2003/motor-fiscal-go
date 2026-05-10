@@ -25,37 +25,9 @@ func NewTaxService(ruleService FiscalRuleService, simulationRepository simulatio
 }
 
 func (s TaxService) Simulate(ctx context.Context, request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error) {
-	freightValue, err := decimal.NewFromString(request.FreightValue)
+	response, err := s.calculate(ctx, request)
 	if err != nil {
 		return dto.TaxSimulationResponse{}, err
-	}
-
-	rule, err := s.ruleService.FindRule(ctx, request)
-	if err != nil {
-		return dto.TaxSimulationResponse{}, err
-	}
-
-	calculation, err := CalculateTaxes(freightValue, rule)
-	if err != nil {
-		return dto.TaxSimulationResponse{}, err
-	}
-
-	response := dto.TaxSimulationResponse{
-		FreightID:          request.FreightID,
-		BaseValue:          formatMoney(calculation.BaseValue),
-		ICMS:               calculation.ICMS,
-		IBS:                calculation.IBS,
-		CBS:                calculation.CBS,
-		TotalTax:           formatMoney(calculation.TotalTax),
-		TotalWithTax:       formatMoney(calculation.TotalWithTax),
-		CFOP:               rule.CFOP,
-		RuleID:             rule.ID,
-		RuleCode:           rule.RuleCode,
-		RuleVersion:        rule.RuleVersion,
-		RuleStatus:         rule.Status,
-		CalculationBasis:   rule.CalculationBasis,
-		CalculationDetails: calculation.CalculationDetails,
-		FromCache:          false,
 	}
 
 	if err := s.simulationRepository.Save(ctx, request, response); err != nil {
@@ -63,6 +35,17 @@ func (s TaxService) Simulate(ctx context.Context, request dto.TaxSimulationReque
 	}
 
 	return response, nil
+}
+
+func (s TaxService) Preview(ctx context.Context, request dto.TaxPreviewRequest) (dto.TaxSimulationResponse, error) {
+	return s.calculate(ctx, dto.TaxSimulationRequest{
+		OperationDate: request.OperationDate,
+		OriginUF:      request.OriginUF,
+		DestinationUF: request.DestinationUF,
+		FreightValue:  request.FreightValue,
+		CustomerType:  request.CustomerType,
+		OperationType: request.OperationType,
+	})
 }
 
 func (s TaxService) Compare(ctx context.Context, request dto.TaxSimulationRequest) (dto.TaxComparisonResponse, error) {
@@ -113,5 +96,40 @@ func (s TaxService) Compare(ctx context.Context, request dto.TaxSimulationReques
 		},
 		Difference: formatMoney(difference),
 		Analysis:   analysis,
+	}, nil
+}
+
+func (s TaxService) calculate(ctx context.Context, request dto.TaxSimulationRequest) (dto.TaxSimulationResponse, error) {
+	freightValue, err := decimal.NewFromString(request.FreightValue)
+	if err != nil {
+		return dto.TaxSimulationResponse{}, err
+	}
+
+	rule, err := s.ruleService.FindRule(ctx, request)
+	if err != nil {
+		return dto.TaxSimulationResponse{}, err
+	}
+
+	calculation, err := CalculateTaxes(freightValue, rule)
+	if err != nil {
+		return dto.TaxSimulationResponse{}, err
+	}
+
+	return dto.TaxSimulationResponse{
+		FreightID:          request.FreightID,
+		BaseValue:          formatMoney(calculation.BaseValue),
+		ICMS:               calculation.ICMS,
+		IBS:                calculation.IBS,
+		CBS:                calculation.CBS,
+		TotalTax:           formatMoney(calculation.TotalTax),
+		TotalWithTax:       formatMoney(calculation.TotalWithTax),
+		CFOP:               rule.CFOP,
+		RuleID:             rule.ID,
+		RuleCode:           rule.RuleCode,
+		RuleVersion:        rule.RuleVersion,
+		RuleStatus:         rule.Status,
+		CalculationBasis:   rule.CalculationBasis,
+		CalculationDetails: calculation.CalculationDetails,
+		FromCache:          false,
 	}, nil
 }

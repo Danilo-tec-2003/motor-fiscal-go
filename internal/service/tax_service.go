@@ -35,37 +35,27 @@ func (s TaxService) Simulate(ctx context.Context, request dto.TaxSimulationReque
 		return dto.TaxSimulationResponse{}, err
 	}
 
-	icmsRate := rule.ICMSRate
-	ibsRate := rule.IBSRate
-	cbsRate := rule.CBSRate
-
-	icmsAmount := calculateTaxAmount(freightValue, icmsRate)
-	ibsAmount := calculateTaxAmount(freightValue, ibsRate)
-	cbsAmount := calculateTaxAmount(freightValue, cbsRate)
-
-	totalTax := icmsAmount.Add(ibsAmount).Add(cbsAmount)
-	totalWithTax := freightValue.Add(totalTax)
+	calculation, err := CalculateTaxes(freightValue, rule)
+	if err != nil {
+		return dto.TaxSimulationResponse{}, err
+	}
 
 	response := dto.TaxSimulationResponse{
-		FreightID: request.FreightID,
-		BaseValue: formatMoney(freightValue),
-		ICMS: dto.TaxAmount{
-			Rate:   formatRate(icmsRate),
-			Amount: formatMoney(icmsAmount),
-		},
-		IBS: dto.TaxAmount{
-			Rate:   formatRate(ibsRate),
-			Amount: formatMoney(ibsAmount),
-		},
-		CBS: dto.TaxAmount{
-			Rate:   formatRate(cbsRate),
-			Amount: formatMoney(cbsAmount),
-		},
-		TotalTax:     formatMoney(totalTax),
-		TotalWithTax: formatMoney(totalWithTax),
-		CFOP:         rule.CFOP,
-		RuleVersion:  rule.RuleVersion,
-		FromCache:    false,
+		FreightID:          request.FreightID,
+		BaseValue:          formatMoney(calculation.BaseValue),
+		ICMS:               calculation.ICMS,
+		IBS:                calculation.IBS,
+		CBS:                calculation.CBS,
+		TotalTax:           formatMoney(calculation.TotalTax),
+		TotalWithTax:       formatMoney(calculation.TotalWithTax),
+		CFOP:               rule.CFOP,
+		RuleID:             rule.ID,
+		RuleCode:           rule.RuleCode,
+		RuleVersion:        rule.RuleVersion,
+		RuleStatus:         rule.Status,
+		CalculationBasis:   rule.CalculationBasis,
+		CalculationDetails: calculation.CalculationDetails,
+		FromCache:          false,
 	}
 
 	if err := s.simulationRepository.Save(ctx, request, response); err != nil {
@@ -86,14 +76,18 @@ func (s TaxService) Compare(ctx context.Context, request dto.TaxSimulationReques
 		return dto.TaxComparisonResponse{}, err
 	}
 
-	icmsAmount := calculateTaxAmount(freightValue, rule.ICMSRate)
-	ibsAmount := calculateTaxAmount(freightValue, rule.IBSRate)
-	cbsAmount := calculateTaxAmount(freightValue, rule.CBSRate)
+	calculation, err := CalculateTaxes(freightValue, rule)
+	if err != nil {
+		return dto.TaxComparisonResponse{}, err
+	}
 
-	currentTotalTax := icmsAmount
+	currentTotalTax, err := decimal.NewFromString(calculation.ICMS.Amount)
+	if err != nil {
+		return dto.TaxComparisonResponse{}, err
+	}
 	currentTotalWithTax := freightValue.Add(currentTotalTax)
 
-	reformTotalTax := icmsAmount.Add(ibsAmount).Add(cbsAmount)
+	reformTotalTax := calculation.TotalTax
 	reformTotalWithTax := freightValue.Add(reformTotalTax)
 
 	difference := reformTotalTax.Sub(currentTotalTax)
@@ -120,16 +114,4 @@ func (s TaxService) Compare(ctx context.Context, request dto.TaxSimulationReques
 		Difference: formatMoney(difference),
 		Analysis:   analysis,
 	}, nil
-}
-
-func calculateTaxAmount(baseValue decimal.Decimal, rate decimal.Decimal) decimal.Decimal {
-	return baseValue.Mul(rate).Div(decimal.NewFromInt(100)).RoundBank(2)
-}
-
-func formatMoney(value decimal.Decimal) string {
-	return value.StringFixedBank(2)
-}
-
-func formatRate(value decimal.Decimal) string {
-	return value.StringFixed(2)
 }

@@ -236,6 +236,34 @@ func taxServiceAPIError(err error, correlationID string) (int, apierrors.APIErro
 		}
 	}
 
+	if errors.Is(err, service.ErrFiscalRuleIncomplete) {
+		return http.StatusInternalServerError, apierrors.APIError{
+			Code:          "FISCAL_RULE_INCOMPLETE",
+			Message:       "Regra fiscal incompleta para calculo.",
+			CorrelationID: correlationID,
+			Details: []apierrors.ValidationDetail{
+				{
+					Field:   "fiscal_rule_taxes",
+					Message: "Verifique se a regra possui ICMS, IBS e CBS configurados.",
+				},
+			},
+		}
+	}
+
+	if errors.Is(err, service.ErrUnsupportedCalculationBasis) {
+		return http.StatusInternalServerError, apierrors.APIError{
+			Code:          "UNSUPPORTED_CALCULATION_BASIS",
+			Message:       "Base de calculo fiscal nao suportada.",
+			CorrelationID: correlationID,
+			Details: []apierrors.ValidationDetail{
+				{
+					Field:   "calculation_basis",
+					Message: "A base de calculo suportada no momento e FREIGHT_VALUE.",
+				},
+			},
+		}
+	}
+
 	return http.StatusInternalServerError, apierrors.APIError{
 		Code:          "INTERNAL_ERROR",
 		Message:       "Erro interno inesperado.",

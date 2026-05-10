@@ -217,5 +217,6 @@ func fiscalRuleFromEngine(rule model.FiscalRuleEngine, request dto.TaxSimulation
 		ValidFrom:        rule.ValidFrom,
 		ValidTo:          rule.ValidTo,
 		Active:           rule.Active,
+		Taxes:            rule.Taxes,
 	}, nil
 }

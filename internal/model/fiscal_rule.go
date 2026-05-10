@@ -21,4 +21,5 @@ type FiscalRule struct {
 	ValidFrom        string
 	ValidTo          string
 	Active           bool
+	Taxes            []FiscalRuleTax
 }
